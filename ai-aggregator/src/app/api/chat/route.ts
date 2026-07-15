@@ -1,5 +1,5 @@
 // app/api/chat/route.ts — Unified Multi-Provider Chat Route
-import { streamText } from 'ai';
+import { streamText, createUIMessageStreamResponse, toUIMessageStream } from 'ai';
 import type { LanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -140,9 +140,12 @@ export async function POST(req: Request) {
       model,
       system: SYSTEM_PROMPT,
       messages: coreMessages,
+      maxTokens: 4096,
     });
 
-    return result.toTextStreamResponse();
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({ stream: result.fullStream }),
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: message }), {

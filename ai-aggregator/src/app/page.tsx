@@ -111,7 +111,7 @@ function NewChatButton({ onNewChat }: { onNewChat: () => void }) {
 export default function Chat() {
   const [input, setInput] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>('openrouter');
-  const [selectedModel, setSelectedModel] = useState<string>('openai/gpt-4o');
+  const [selectedModel, setSelectedModel] = useState<string>('deepseek/deepseek-chat-v3-0324');
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
