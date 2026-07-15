@@ -1,5 +1,5 @@
 // app/api/chat/route.ts
-import { OpenAIStream, StreamingTextResponse } from 'ai';
+import { pipeTextStreamToResponse } from 'ai';
 import { OpenAI } from 'openai';
 
 const openai = new OpenAI({
@@ -33,7 +33,6 @@ export async function POST(req: Request) {
     ],
   });
 
-  // Convert the response into a friendly text stream
-  const stream = OpenAIStream(response);
-  return new StreamingTextResponse(stream);
+  // Convert the response into a friendly text stream (AI SDK v7)
+  return pipeTextStreamToResponse(response.body!);
 }
