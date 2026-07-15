@@ -338,7 +338,7 @@ export default function Chat() {
               return (
                 <div
                   key={m.id}
-                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex w-full ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`flex gap-3 max-w-[85%] ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
@@ -378,7 +378,7 @@ export default function Chat() {
             })}
 
             {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
-              <div className="flex justify-start">
+              <div className="flex justify-start w-full">
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-sm shrink-0">
                     {currentProvider?.icon}
@@ -396,7 +396,7 @@ export default function Chat() {
             )}
 
             {error && (
-              <div className="flex justify-center">
+              <div className="flex justify-center w-full">
                 <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-red-400 text-sm max-w-lg">
                   <strong>Error:</strong> {error.message || 'Something went wrong.'}
                   <p className="mt-1 text-red-300/70 text-xs">
