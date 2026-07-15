@@ -26,14 +26,14 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
           'X-Title': 'AI Aggregator',
         },
       });
-      return openrouter(modelId);
+      return openrouter.chat(modelId);
     }
 
     case 'openai': {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) throw new Error('OPENAI_API_KEY not set');
       const openai = createOpenAI({ apiKey });
-      return openai(modelId);
+      return openai.chat(modelId);
     }
 
     case 'anthropic': {
@@ -64,7 +64,7 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
         apiKey,
         baseURL: 'https://api.deepseek.com/v1',
       });
-      return deepseek(modelId);
+      return deepseek.chat(modelId);
     }
 
     case 'glm': {
@@ -74,7 +74,7 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
         apiKey,
         baseURL: process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/',
       });
-      return glm(modelId);
+      return glm.chat(modelId);
     }
 
     case 'perplexity': {
@@ -84,7 +84,7 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
         apiKey,
         baseURL: 'https://api.perplexity.ai',
       });
-      return perplexity(modelId);
+      return perplexity.chat(modelId);
     }
 
     case 'ollama': {
@@ -93,7 +93,7 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
         apiKey: 'ollama', // Ollama doesn't require a real key
         baseURL,
       });
-      return ollama(modelId);
+      return ollama.chat(modelId);
     }
 
     case 'custom': {
@@ -101,7 +101,7 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
       const baseURL = process.env.CUSTOM_BASE_URL || '';
       if (!baseURL) throw new Error('CUSTOM_BASE_URL not set');
       const custom = createOpenAI({ apiKey, baseURL });
-      return custom(modelId);
+      return custom.chat(modelId);
     }
 
     default:
