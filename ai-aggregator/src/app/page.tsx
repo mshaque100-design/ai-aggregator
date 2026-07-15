@@ -110,8 +110,8 @@ function NewChatButton({ onNewChat }: { onNewChat: () => void }) {
 
 export default function Chat() {
   const [input, setInput] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('openai');
-  const [selectedModel, setSelectedModel] = useState<string>('gpt-4o');
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('openrouter');
+  const [selectedModel, setSelectedModel] = useState<string>('openai/gpt-4o');
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);

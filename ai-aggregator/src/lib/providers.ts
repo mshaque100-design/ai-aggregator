@@ -9,6 +9,7 @@ export interface ModelConfig {
 }
 
 export type ProviderId =
+  | 'openrouter'
   | 'openai'
   | 'anthropic'
   | 'google'
@@ -30,6 +31,28 @@ export interface ProviderConfig {
 }
 
 export const providers: ProviderConfig[] = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    icon: '🌐',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openrouter', description: 'Fast & cheap via OpenRouter' },
+      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude 4 Sonnet', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'google/gemini-2.5-flash-preview', name: 'Gemini 2.5 Flash', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'mistralai/mistral-large', name: 'Mistral Large', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', provider: 'openrouter', description: 'Open source, via OpenRouter' },
+      { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'openrouter', description: 'Via OpenRouter' },
+      { id: 'x-ai/grok-3-beta', name: 'Grok 3', provider: 'openrouter', description: 'Via OpenRouter' },
+    ],
+  },
   {
     id: 'openai',
     name: 'OpenAI',

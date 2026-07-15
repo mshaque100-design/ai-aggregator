@@ -15,6 +15,20 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
   if (!provider) throw new Error(`Unknown provider: ${providerId}`);
 
   switch (providerId) {
+    case 'openrouter': {
+      const apiKey = process.env.OPENROUTER_API_KEY;
+      if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
+      const openrouter = createOpenAI({
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+        headers: {
+          'HTTP-Referer': 'https://ai-aggregator.vercel.app',
+          'X-Title': 'AI Aggregator',
+        },
+      });
+      return openrouter(modelId);
+    }
+
     case 'openai': {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) throw new Error('OPENAI_API_KEY not set');
