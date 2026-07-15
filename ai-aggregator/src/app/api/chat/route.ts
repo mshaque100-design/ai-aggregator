@@ -104,6 +104,22 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
       return custom.chat(modelId);
     }
 
+    case 'llama':
+    case 'qwen': {
+      // These providers route through OpenRouter
+      const apiKey = process.env.OPENROUTER_API_KEY;
+      if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
+      const or = createOpenAI({
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+        headers: {
+          'HTTP-Referer': 'https://ai-aggregator.vercel.app',
+          'X-Title': 'AI Aggregator',
+        },
+      });
+      return or.chat(modelId);
+    }
+
     default:
       throw new Error(`Unsupported provider: ${providerId}`);
   }
@@ -140,7 +156,7 @@ export async function POST(req: Request) {
       model,
       system: SYSTEM_PROMPT,
       messages: coreMessages,
-      maxTokens: 4096,
+      maxOutputTokens: 4096,
     });
 
     return createUIMessageStreamResponse({

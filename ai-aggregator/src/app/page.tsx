@@ -116,17 +116,23 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Use refs so the transport always reads the latest provider/model
+  const providerModelRef = useRef({ provider: selectedProvider, model: selectedModel });
+  providerModelRef.current = { provider: selectedProvider, model: selectedModel };
+
+  // Create transport once, body function reads latest values from ref
+  const transportRef = useRef(
+    new DefaultChatTransport({
+      api: '/api/chat',
+      body: () => providerModelRef.current,
+    })
+  );
+
   const currentProvider = providers.find((p) => p.id === selectedProvider)!;
   const currentModels = currentProvider?.models || [];
 
   const { messages, status, error, setMessages, sendMessage, stop } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      body: {
-        provider: selectedProvider,
-        model: selectedModel,
-      },
-    }),
+    transport: transportRef.current,
     onError: (err) => {
       console.error('Chat error:', err);
     },
@@ -392,7 +398,10 @@ export default function Chat() {
             {error && (
               <div className="flex justify-center">
                 <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-red-400 text-sm max-w-lg">
-                  <strong>Error:</strong> {error.message || 'Something went wrong. Check your API keys in Settings.'}
+                  <strong>Error:</strong> {error.message || 'Something went wrong.'}
+                  <p className="mt-1 text-red-300/70 text-xs">
+                    Make sure your API key is set. OpenRouter key uses the same key for Llama &amp; Qwen.
+                  </p>
                 </div>
               </div>
             )}

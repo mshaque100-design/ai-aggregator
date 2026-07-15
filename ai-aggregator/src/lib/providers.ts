@@ -18,7 +18,9 @@ export type ProviderId =
   | 'glm'
   | 'ollama'
   | 'perplexity'
-  | 'custom';
+  | 'custom'
+  | 'llama'
+  | 'qwen';
 
 export interface ProviderConfig {
   id: ProviderId;
@@ -48,8 +50,6 @@ export const providers: ProviderConfig[] = [
       { id: 'mistralai/mistral-large', name: 'Mistral Large', provider: 'openrouter', description: 'Via OpenRouter' },
       { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3', provider: 'openrouter', description: 'Via OpenRouter' },
       { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', provider: 'openrouter', description: 'Via OpenRouter' },
-      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', provider: 'openrouter', description: 'Open source, via OpenRouter' },
-      { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'openrouter', description: 'Via OpenRouter' },
       { id: 'x-ai/grok-3-beta', name: 'Grok 3', provider: 'openrouter', description: 'Via OpenRouter' },
     ],
   },
@@ -147,6 +147,26 @@ export const providers: ProviderConfig[] = [
       { id: 'mistral', name: 'Mistral (local)', provider: 'ollama', description: 'Mistral 7B (local)' },
       { id: 'codellama', name: 'Code Llama', provider: 'ollama', description: 'Code Llama (local)' },
       { id: 'phi3', name: 'Phi-3', provider: 'ollama', description: 'Microsoft Phi-3 (local)' },
+    ],
+  },
+  {
+    id: 'llama',
+    name: 'Llama 3.3 70B',
+    icon: '🦙',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct', provider: 'llama', description: 'Meta Llama 3.3, open source via OpenRouter' },
+    ],
+  },
+  {
+    id: 'qwen',
+    name: 'Qwen3',
+    icon: '🐉',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'qwen', description: 'Alibaba Qwen3 MoE via OpenRouter' },
     ],
   },
   {
