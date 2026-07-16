@@ -6,7 +6,7 @@ import { DefaultChatTransport } from 'ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { providers, type ProviderId } from '@/lib/providers';
+import { publicProviders, providers, type ProviderId } from '@/lib/providers';
 
 function extractText(message: { parts?: Array<{ type: string; text?: string }> }): string {
   if (!message.parts) return '';
@@ -110,7 +110,7 @@ function NewChatButton({ onNewChat }: { onNewChat: () => void }) {
 
 export default function Chat() {
   const [input, setInput] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('openrouter');
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('deepseek');
   const [selectedModel, setSelectedModel] = useState<string>('deepseek/deepseek-chat-v3-0324');
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -128,7 +128,7 @@ export default function Chat() {
     })
   );
 
-  const currentProvider = providers.find((p) => p.id === selectedProvider)!;
+  const currentProvider = publicProviders.find((p) => p.id === selectedProvider) || providers.find((p) => p.id === selectedProvider)!;
   const currentModels = currentProvider?.models || [];
 
   const { messages, status, error, setMessages, sendMessage, stop } = useChat({
@@ -149,7 +149,7 @@ export default function Chat() {
   }, [messages, scrollToBottom]);
 
   const handleProviderChange = (providerId: ProviderId) => {
-    const provider = providers.find((p) => p.id === providerId);
+    const provider = publicProviders.find((p) => p.id === providerId) || providers.find((p) => p.id === providerId);
     setSelectedProvider(providerId);
     if (provider && provider.models.length > 0) {
       setSelectedModel(provider.models[0].id);
@@ -178,11 +178,14 @@ export default function Chat() {
       {/* Sidebar */}
       {sidebarOpen && (
         <aside className="w-72 bg-[#0d0d1a] border-r border-gray-800 flex flex-col shrink-0">
-          <div className="p-4 border-b border-gray-800">
-            <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-              AI Aggregator
-            </h1>
-            <p className="text-xs text-gray-500 mt-0.5">Multi-LLM Chat Agent</p>
+          <div className="p-4 border-b border-gray-800 flex items-center gap-3">
+            <img src="/logo.png" alt="AI Aggregator" className="w-9 h-9 rounded-lg" />
+            <div>
+              <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                AI Aggregator
+              </h1>
+              <p className="text-xs text-gray-500">Multi-LLM Chat Agent</p>
+            </div>
           </div>
 
           <div className="p-3">
@@ -192,10 +195,10 @@ export default function Chat() {
           {/* Provider List */}
           <nav className="flex-1 overflow-y-auto px-3 pb-3">
             <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold px-2 mb-2">
-              Providers
+              AI Models
             </p>
             <div className="space-y-0.5">
-              {providers.map((p) => (
+              {publicProviders.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => handleProviderChange(p.id)}
@@ -215,8 +218,8 @@ export default function Chat() {
             </div>
           </nav>
 
-          {/* Settings Button */}
-          <div className="p-3 border-t border-gray-800">
+          {/* Settings Button — hidden from public */}
+          {/* <div className="p-3 border-t border-gray-800">
             <button
               onClick={() => setShowSettings(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-all w-full"
@@ -232,7 +235,7 @@ export default function Chat() {
               </svg>
               API Keys
             </button>
-          </div>
+          </div> */}
         </aside>
       )}
 
@@ -282,21 +285,6 @@ export default function Chat() {
                 </svg>
               </button>
             )}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 transition-colors"
-              title="Settings"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
           </div>
         </header>
 
@@ -399,9 +387,6 @@ export default function Chat() {
               <div className="flex justify-center w-full">
                 <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-red-400 text-sm max-w-lg">
                   <strong>Error:</strong> {error.message || 'Something went wrong.'}
-                  <p className="mt-1 text-red-300/70 text-xs">
-                    Make sure your API key is set. OpenRouter key uses the same key for Llama &amp; Qwen.
-                  </p>
                 </div>
               </div>
             )}

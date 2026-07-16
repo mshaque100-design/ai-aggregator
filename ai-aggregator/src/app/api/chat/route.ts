@@ -2,71 +2,37 @@
 import { streamText, createUIMessageStreamResponse, toUIMessageStream } from 'ai';
 import type { LanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createMistral } from '@ai-sdk/mistral';
-import { providers, type ProviderId } from '@/lib/providers';
+import { providers, isOpenRouterBacked, type ProviderId } from '@/lib/providers';
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant. Be concise, accurate, and friendly.
 If you don't know something, say so honestly. Format code blocks when sharing code.`;
+
+// Create OpenRouter client (reused for all OpenRouter-backed providers)
+function createOpenRouterClient() {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('API key not configured. Please contact support.');
+  return createOpenAI({
+    apiKey,
+    baseURL: 'https://openrouter.ai/api/v1',
+    headers: {
+      'HTTP-Referer': 'https://ai-aggregator.app',
+      'X-Title': 'AI Aggregator',
+    },
+  });
+}
 
 function getModel(providerId: ProviderId, modelId: string): LanguageModel {
   const provider = providers.find((p) => p.id === providerId);
   if (!provider) throw new Error(`Unknown provider: ${providerId}`);
 
+  // All OpenRouter-backed providers (GPT, Claude, Gemini, Mistral, DeepSeek, Grok, Llama, Qwen)
+  if (isOpenRouterBacked(providerId)) {
+    const client = createOpenRouterClient();
+    return client.chat(modelId);
+  }
+
+  // Direct API providers
   switch (providerId) {
-    case 'openrouter': {
-      const apiKey = process.env.OPENROUTER_API_KEY;
-      if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
-      const openrouter = createOpenAI({
-        apiKey,
-        baseURL: 'https://openrouter.ai/api/v1',
-        headers: {
-          'HTTP-Referer': 'https://ai-aggregator.vercel.app',
-          'X-Title': 'AI Aggregator',
-        },
-      });
-      return openrouter.chat(modelId);
-    }
-
-    case 'openai': {
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) throw new Error('OPENAI_API_KEY not set');
-      const openai = createOpenAI({ apiKey });
-      return openai.chat(modelId);
-    }
-
-    case 'anthropic': {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
-      const anthropic = createAnthropic({ apiKey });
-      return anthropic(modelId);
-    }
-
-    case 'google': {
-      const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY not set');
-      const google = createGoogleGenerativeAI({ apiKey });
-      return google(modelId);
-    }
-
-    case 'mistral': {
-      const apiKey = process.env.MISTRAL_API_KEY;
-      if (!apiKey) throw new Error('MISTRAL_API_KEY not set');
-      const mistral = createMistral({ apiKey });
-      return mistral(modelId);
-    }
-
-    case 'deepseek': {
-      const apiKey = process.env.DEEPSEEK_API_KEY;
-      if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
-      const deepseek = createOpenAI({
-        apiKey,
-        baseURL: 'https://api.deepseek.com/v1',
-      });
-      return deepseek.chat(modelId);
-    }
-
     case 'glm': {
       const apiKey = process.env.GLM_API_KEY;
       if (!apiKey) throw new Error('GLM_API_KEY not set');
@@ -90,7 +56,7 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
     case 'ollama': {
       const baseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1';
       const ollama = createOpenAI({
-        apiKey: 'ollama', // Ollama doesn't require a real key
+        apiKey: 'ollama',
         baseURL,
       });
       return ollama.chat(modelId);
@@ -102,22 +68,6 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
       if (!baseURL) throw new Error('CUSTOM_BASE_URL not set');
       const custom = createOpenAI({ apiKey, baseURL });
       return custom.chat(modelId);
-    }
-
-    case 'llama':
-    case 'qwen': {
-      // These providers route through OpenRouter
-      const apiKey = process.env.OPENROUTER_API_KEY;
-      if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
-      const or = createOpenAI({
-        apiKey,
-        baseURL: 'https://openrouter.ai/api/v1',
-        headers: {
-          'HTTP-Referer': 'https://ai-aggregator.vercel.app',
-          'X-Title': 'AI Aggregator',
-        },
-      });
-      return or.chat(modelId);
     }
 
     default:
