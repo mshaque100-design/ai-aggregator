@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { publicProviders, providers, type ProviderId } from '@/lib/providers';
+import { UserButton, SignInButton, SignUpButton, useUser } from '@clerk/nextjs';
 
 function extractText(message: { parts?: Array<{ type: string; text?: string }> }): string {
   if (!message.parts) return '';
@@ -109,12 +110,32 @@ function NewChatButton({ onNewChat }: { onNewChat: () => void }) {
 }
 
 export default function Chat() {
+  const { isSignedIn, isLoaded } = useUser();
   const [input, setInput] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>('deepseek');
   const [selectedModel, setSelectedModel] = useState<string>('deepseek/deepseek-chat-v3-0324');
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [plan, setPlan] = useState<string>('FREE');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch credits on mount and after each message
+  const fetchCredits = useCallback(async () => {
+    if (!isSignedIn) return;
+    try {
+      const res = await fetch('/api/credits');
+      if (res.ok) {
+        const data = await res.json();
+        setCredits(data.credits);
+        setPlan(data.plan);
+      }
+    } catch {}
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits]);
 
   // Use refs so the transport always reads the latest provider/model
   const providerModelRef = useRef({ provider: selectedProvider, model: selectedModel });
@@ -146,7 +167,11 @@ export default function Chat() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
+    // Refresh credits after each new assistant message
+    if (messages.length > 0 && messages[messages.length - 1]?.role === 'assistant') {
+      fetchCredits();
+    }
+  }, [messages, scrollToBottom, fetchCredits]);
 
   const handleProviderChange = (providerId: ProviderId) => {
     const provider = publicProviders.find((p) => p.id === providerId) || providers.find((p) => p.id === providerId);
@@ -218,24 +243,43 @@ export default function Chat() {
             </div>
           </nav>
 
-          {/* Settings Button — hidden from public */}
-          {/* <div className="p-3 border-t border-gray-800">
-            <button
-              onClick={() => setShowSettings(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-all w-full"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              API Keys
-            </button>
-          </div> */}
+          {/* Credit Counter & Upgrade */}
+          <div className="p-3 border-t border-gray-800">
+            {isSignedIn ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">
+                    {plan === 'PRO' ? '∞' : credits !== null ? credits : '...'} credits
+                  </span>
+                  {plan !== 'PRO' && (
+                    <a href="/pricing" className="text-blue-400 hover:text-blue-300 text-xs font-medium">
+                      Upgrade
+                    </a>
+                  )}
+                </div>
+                {plan !== 'PRO' && credits !== null && (
+                  <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${credits > 5 ? 'bg-blue-500' : credits > 0 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${Math.min(100, (credits / 10) * 100)}%` }}
+                    />
+                  </div>
+                )}
+                {plan === 'PRO' && (
+                  <span className="text-[10px] text-green-400 font-medium">PRO — Unlimited</span>
+                )}
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-2">Sign up for 10 free credits</p>
+                <SignUpButton mode="modal">
+                  <button className="w-full py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 transition-colors font-medium">
+                    Create Free Account
+                  </button>
+                </SignUpButton>
+              </div>
+            )}
+          </div>
         </aside>
       )}
 
@@ -284,6 +328,24 @@ export default function Chat() {
                   <rect x="6" y="6" width="12" height="12" rx="1" />
                 </svg>
               </button>
+            )}
+            {isLoaded && (
+              isSignedIn ? (
+                <UserButton />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <SignInButton mode="modal">
+                    <button className="px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded-lg hover:bg-gray-800">
+                      Sign In
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                      Sign Up
+                    </button>
+                  </SignUpButton>
+                </div>
+              )
             )}
           </div>
         </header>

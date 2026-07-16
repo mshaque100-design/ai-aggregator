@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id // Clerk user ID
+  email         String    @unique
+  name          String?
+  credits       Int       @default(10) // Free tier: 10 credits
+  plan          Plan      @default(FREE)
+  stripeId      String?   @unique // Stripe customer ID
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  usages Usage[]
+}
+
+model Usage {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  provider    String   // e.g. 'gpt', 'claude', 'deepseek'
+  model       String   // e.g. 'openai/gpt-4o'
+  tokensUsed  Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+model StripeEvent {
+  id        String   @id @default(cuid())
+  stripeId  String   @unique // stripe event ID
+  type      String   // e.g. 'checkout.session.completed'
+  processed Boolean  @default(false)
+  data      Json
+  createdAt DateTime @default(now())
+}
