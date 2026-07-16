@@ -23,11 +23,10 @@ export async function POST(req: NextRequest) {
   }
 
   const prisma = await db();
-  if (!prisma) {
-    return NextResponse.json({ error: "DB not configured" }, { status: 503 });
-  }
 
-  const existing = await prisma.stripeEvent.findUnique({ where: { stripeId: event.id } });
+  const existing = prisma
+    ? await prisma.stripeEvent.findUnique({ where: { stripeId: event.id } })
+    : null;
   if (existing?.processed) {
     return NextResponse.json({ received: true });
   }
@@ -39,48 +38,70 @@ export async function POST(req: NextRequest) {
         const userId = session.metadata?.userId;
         const priceId = session.metadata?.priceId;
 
-        if (userId) {
-          const proPriceId = process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID;
-          const credits100Id = process.env.NEXT_PUBLIC_STRIPE_CREDITS_100_PRICE_ID;
-          const credits500Id = process.env.NEXT_PUBLIC_STRIPE_CREDITS_500_PRICE_ID;
+        if (userId && prisma) {
+          const proPriceId = process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID;
+          const premiumPriceId = process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID;
 
-          if (priceId === proPriceId) {
-            await prisma.user.upsert({
-              where: { id: userId },
-              create: { id: userId, email: "", credits: 500, plan: "PRO", stripeId: session.customer as string },
-              update: { credits: { increment: 500 }, plan: "PRO", stripeId: session.customer as string },
-            });
-          } else if (priceId === credits100Id) {
-            await prisma.user.upsert({
-              where: { id: userId },
-              create: { id: userId, email: "", credits: 100 },
-              update: { credits: { increment: 100 } },
-            });
-          } else if (priceId === credits500Id) {
-            await prisma.user.upsert({
-              where: { id: userId },
-              create: { id: userId, email: "", credits: 500 },
-              update: { credits: { increment: 500 } },
+          const newPlan = priceId === premiumPriceId ? "PREMIUM" : "PRO";
+
+          await prisma.user.upsert({
+            where: { id: userId },
+            create: {
+              id: userId,
+              email: "",
+              plan: newPlan,
+              stripeId: session.customer as string,
+            },
+            update: {
+              plan: newPlan,
+              stripeId: session.customer as string,
+            },
+          });
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        if (prisma) {
+          const user = await prisma.user.findFirst({
+            where: { stripeId: sub.customer as string },
+          });
+          if (user) {
+            // Downgrade to PRO (not free — they keep free models access)
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { plan: "PRO" },
             });
           }
         }
         break;
       }
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const user = await prisma.user.findFirst({ where: { stripeId: sub.customer as string } });
-        if (user) {
-          await prisma.user.update({ where: { id: user.id }, data: { plan: "FREE" } });
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (prisma) {
+          const user = await prisma.user.findFirst({
+            where: { stripeId: invoice.customer as string },
+          });
+          if (user && user.plan === "PREMIUM") {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { plan: "PRO" },
+            });
+          }
         }
         break;
       }
     }
 
-    await prisma.stripeEvent.upsert({
-      where: { stripeId: event.id },
-      create: { stripeId: event.id, type: event.type, processed: true, data: event.data as object },
-      update: { processed: true },
-    });
+    if (prisma) {
+      await prisma.stripeEvent.upsert({
+        where: { stripeId: event.id },
+        create: { stripeId: event.id, type: event.type, processed: true, data: event.data as object },
+        update: { processed: true },
+      });
+    }
   } catch (error) {
     console.error("Webhook handler error:", error);
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });

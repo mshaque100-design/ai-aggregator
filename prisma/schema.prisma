@@ -10,34 +10,36 @@ model User {
   id            String    @id // Clerk user ID
   email         String    @default("")
   name          String?
-  credits       Int       @default(10) // Free tier: 10 credits
-  plan          Plan      @default(FREE)
+  plan          Plan      @default(TRIAL)
+  trialEndsAt   DateTime? // 7 days after signup
   stripeId      String?   @unique // Stripe customer ID
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  usages Usage[]
+  usages DailyUsage[]
 }
 
-model Usage {
+model DailyUsage {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id])
-  provider    String   // e.g. 'gpt', 'claude', 'deepseek'
   model       String   // e.g. 'openai/gpt-4o'
-  tokensUsed  Int      @default(0)
-  createdAt   DateTime @default(now())
+  count       Int      @default(1) // Messages sent today
+  date        String   // e.g. '2025-07-17' (YYYY-MM-DD)
+
+  @@unique([userId, model, date])
 }
 
 enum Plan {
-  FREE
-  PRO
+  TRIAL   // 7-day free trial, free models only
+  PRO     // $20/year, free models unlimited
+  PREMIUM // $49/year, all models with daily limits
 }
 
 model StripeEvent {
   id        String   @id @default(cuid())
-  stripeId  String   @unique // stripe event ID
-  type      String   // e.g. 'checkout.session.completed'
+  stripeId  String   @unique
+  type      String
   processed Boolean  @default(false)
   data      Json
   createdAt DateTime @default(now())

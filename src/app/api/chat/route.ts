@@ -1,10 +1,10 @@
-// app/api/chat/route.ts — Unified Multi-Provider Chat Route with Credit Enforcement
+// app/api/chat/route.ts — Multi-Provider Chat Route with Plan Enforcement
 import { streamText, createUIMessageStreamResponse, toUIMessageStream } from 'ai';
 import type { LanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
-import { providers, isOpenRouterBacked, type ProviderId } from '@/lib/providers';
+import { providers, isOpenRouterBacked, isModelFree, type ProviderId } from '@/lib/providers';
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant. Be concise, accurate, and friendly.
 If you don't know something, say so honestly. Format code blocks when sharing code.`;
@@ -31,16 +31,6 @@ function getModel(providerId: ProviderId, modelId: string): LanguageModel {
   }
 
   switch (providerId) {
-    case 'glm': {
-      const apiKey = process.env.GLM_API_KEY;
-      if (!apiKey) throw new Error('GLM_API_KEY not set');
-      return createOpenAI({ apiKey, baseURL: process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/' }).chat(modelId);
-    }
-    case 'perplexity': {
-      const apiKey = process.env.PERPLEXITY_API_KEY;
-      if (!apiKey) throw new Error('PERPLEXITY_API_KEY not set');
-      return createOpenAI({ apiKey, baseURL: 'https://api.perplexity.ai' }).chat(modelId);
-    }
     case 'ollama': {
       return createOpenAI({ apiKey: 'ollama', baseURL: process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1' }).chat(modelId);
     }
@@ -64,6 +54,16 @@ function toCoreMessages(uiMessages: Array<{ role: string; parts?: Array<{ type: 
     }));
 }
 
+function getTodayString(): string {
+  return new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+}
+
+function getModelDailyLimit(modelId: string): number | null {
+  const allModels = providers.flatMap((p) => p.models);
+  const model = allModels.find((m) => m.id === modelId);
+  return model?.dailyLimit ?? null;
+}
+
 export async function POST(req: Request) {
   const { messages, provider: providerId, model: modelId } = await req.json();
 
@@ -77,31 +77,96 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     const prisma = await db();
 
+    // ─── Access Control (only if DB + auth available) ───
     if (userId && prisma) {
+      // Upsert user on first message
       await prisma.user.upsert({
         where: { id: userId },
-        create: { id: userId, email: '', credits: 10, plan: 'FREE' },
+        create: {
+          id: userId,
+          email: '',
+          plan: 'TRIAL',
+          trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        },
         update: {},
       });
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (user && user.plan === 'FREE' && user.credits <= 0) {
-        return new Response(
-          JSON.stringify({ error: 'No credits remaining. Please upgrade to continue chatting.' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        );
+      if (!user) throw new Error('User not found');
+
+      const modelIsFree = isModelFree(modelId);
+
+      // ─── TRIAL user checks ───
+      if (user.plan === 'TRIAL') {
+        // Check if trial has expired
+        if (user.trialEndsAt && new Date() > user.trialEndsAt) {
+          return new Response(
+            JSON.stringify({
+              error: 'Your 7-day free trial has ended. Upgrade to continue chatting.',
+              code: 'TRIAL_EXPIRED',
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        // Trial users can only use FREE models
+        if (!modelIsFree) {
+          return new Response(
+            JSON.stringify({
+              error: 'This model is for Premium subscribers only. Upgrade to unlock all models.',
+              code: 'UPGRADE_REQUIRED',
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
-      if (user && user.plan !== 'PRO') {
-        await prisma.user.update({ where: { id: userId }, data: { credits: { decrement: 1 } } });
+      // ─── PRO user checks (free models unlimited, premium models blocked) ───
+      if (user.plan === 'PRO') {
+        if (!modelIsFree) {
+          return new Response(
+            JSON.stringify({
+              error: 'This model requires a Premium plan. Upgrade to unlock GPT-4o, Claude, and Grok.',
+              code: 'UPGRADE_REQUIRED',
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
-      await prisma.usage.create({ data: { userId, provider: providerId, model: modelId, tokensUsed: 0 } });
+      // ─── PREMIUM user checks (all models, with daily limits on premium models) ───
+      if (user.plan === 'PREMIUM' && !modelIsFree) {
+        const dailyLimit = getModelDailyLimit(modelId);
+        if (dailyLimit !== null) {
+          const today = getTodayString();
+          const usage = await prisma.dailyUsage.findUnique({
+            where: { userId_model_date: { userId, model: modelId, date: today } },
+          });
+          if (usage && usage.count >= dailyLimit) {
+            return new Response(
+              JSON.stringify({
+                error: `Daily limit reached (${dailyLimit} messages/day for this model). Try again tomorrow or use a free model.`,
+                code: 'DAILY_LIMIT',
+              }),
+              { status: 429, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+
+      // ─── Track usage (increment daily counter) ───
+      if (user.plan === 'PREMIUM' && !modelIsFree) {
+        const today = getTodayString();
+        await prisma.dailyUsage.upsert({
+          where: { userId_model_date: { userId, model: modelId, date: today } },
+          create: { userId, model: modelId, date: today, count: 1 },
+          update: { count: { increment: 1 } },
+        });
+      }
     }
 
+    // ─── Stream the response ───
     const model = getModel(providerId, modelId);
     const coreMessages = toCoreMessages(messages);
-
     const result = streamText({ model, system: SYSTEM_PROMPT, messages: coreMessages, maxOutputTokens: 4096 });
 
     return createUIMessageStreamResponse({ stream: toUIMessageStream({ stream: result.fullStream }) });

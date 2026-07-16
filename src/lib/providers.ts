@@ -1,12 +1,14 @@
 // lib/providers.ts — Multi-LLM Provider Configuration
 // OpenRouter is used as the routing backend but hidden from the public UI
+// Models are categorized by tier: 'free' (costs $0) or 'premium' (costs API $)
 
 export interface ModelConfig {
   id: string;
   name: string;
   provider: ProviderId;
   description: string;
-  maxTokens?: number;
+  tier: 'free' | 'premium';
+  dailyLimit?: number; // Daily message limit for premium models (only enforced for PREMIUM plan)
 }
 
 export type ProviderId =
@@ -16,12 +18,12 @@ export type ProviderId =
   | 'gemini'
   | 'mistral'
   | 'deepseek'
-  | 'glm'
-  | 'ollama'
-  | 'perplexity'
   | 'grok'
   | 'llama'
   | 'qwen'
+  | 'glm'
+  | 'perplexity'
+  | 'ollama'
   | 'custom';
 
 export interface ProviderConfig {
@@ -32,44 +34,45 @@ export interface ProviderConfig {
   envKey: string;
   baseUrl?: string;
   isCustom?: boolean;
-  hidden?: boolean; // true = not shown in sidebar
+  hidden?: boolean;
 }
 
 export const providers: ProviderConfig[] = [
-  // ─── Branded model providers (routed through OpenRouter, shown to public) ───
+  // ═══════════════════════════════════════════════════════════════
+  // FREE MODELS (costs you $0 per message via OpenRouter :free)
+  // ═══════════════════════════════════════════════════════════════
 
   {
-    id: 'gpt',
-    name: 'GPT',
-    icon: '🟢',
+    id: 'deepseek',
+    name: 'DeepSeek',
+    icon: '🔷',
     envKey: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
-      { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'gpt', description: 'Most capable, multimodal' },
-      { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'gpt', description: 'Fast & affordable' },
+      { id: 'deepseek/deepseek-chat-v3-0324:free', name: 'DeepSeek V3', provider: 'deepseek', description: 'General-purpose, strong reasoning', tier: 'free' },
+      { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1', provider: 'deepseek', description: 'Chain-of-thought reasoning', tier: 'free' },
     ],
   },
   {
-    id: 'claude',
-    name: 'Claude',
-    icon: '🟠',
+    id: 'llama',
+    name: 'Llama',
+    icon: '🦙',
     envKey: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
-      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude 4 Sonnet', provider: 'claude', description: 'Best balance of speed & intelligence' },
-      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'claude', description: 'Strong reasoning, fast' },
-      { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'claude', description: 'Most powerful, complex tasks' },
+      { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', provider: 'llama', description: 'Meta flagship, 70B parameters', tier: 'free' },
+      { id: 'meta-llama/llama-3.1-8b-instruct:free', name: 'Llama 3.1 8B', provider: 'llama', description: 'Fast & lightweight', tier: 'free' },
     ],
   },
   {
-    id: 'gemini',
-    name: 'Gemini',
-    icon: '🔵',
+    id: 'qwen',
+    name: 'Qwen',
+    icon: '🐉',
     envKey: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
-      { id: 'google/gemini-2.5-flash-preview', name: 'Gemini 2.5 Flash', provider: 'gemini', description: 'Fast, thinking model' },
-      { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', provider: 'gemini', description: 'Most capable Gemini' },
+      { id: 'qwen/qwen-2.5-72b-instruct:free', name: 'Qwen 2.5 72B', provider: 'qwen', description: 'Alibaba, 72B parameters', tier: 'free' },
+      { id: 'qwen/qwen-2-7b-instruct:free', name: 'Qwen 2 7B', provider: 'qwen', description: 'Fast & efficient', tier: 'free' },
     ],
   },
   {
@@ -79,18 +82,81 @@ export const providers: ProviderConfig[] = [
     envKey: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
-      { id: 'mistralai/mistral-large', name: 'Mistral Large', provider: 'mistral', description: 'Most capable Mistral model' },
+      { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B', provider: 'mistral', description: 'Fast open-source model', tier: 'free' },
     ],
   },
   {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    icon: '🔷',
+    id: 'gemini',
+    name: 'Gemma',
+    icon: '🔵',
     envKey: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
-      { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3', provider: 'deepseek', description: 'General-purpose, strong reasoning' },
-      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', provider: 'deepseek', description: 'Chain-of-thought reasoning' },
+      { id: 'google/gemma-2-9b-it:free', name: 'Gemma 2 9B', provider: 'gemini', description: 'Google open-source, instruction-tuned', tier: 'free' },
+    ],
+  },
+
+  // ─── More Free Models (grouped as new "providers" for the sidebar) ───
+
+  {
+    id: 'gpt',
+    name: 'Phi-3',
+    icon: '🟢',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'microsoft/phi-3-mini-128k-instruct:free', name: 'Phi-3 Mini 128K', provider: 'gpt', description: 'Microsoft, 128K context', tier: 'free' },
+    ],
+  },
+  {
+    id: 'perplexity',
+    name: 'Hermes',
+    icon: '🟡',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'nousresearch/nous-hermes-2-mixtral-8x7b-dpo:free', name: 'Hermes Mixtral 8x7B', provider: 'perplexity', description: 'Mixtral MoE, DPO tuned', tier: 'free' },
+    ],
+  },
+
+  // We'll reuse 'glm' slot for Zephyr
+  {
+    id: 'glm',
+    name: 'Zephyr',
+    icon: '🔴',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'huggingfaceh4/zephyr-7b-beta:free', name: 'Zephyr 7B', provider: 'glm', description: 'HuggingFace, chat fine-tuned', tier: 'free' },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // PREMIUM MODELS (costs API $$ — only for PREMIUM subscribers)
+  // ═══════════════════════════════════════════════════════════════
+
+  {
+    id: '_openrouter',
+    name: 'GPT-4o',
+    icon: '🟢',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    hidden: true,
+    models: [
+      { id: 'openai/gpt-4o', name: 'GPT-4o', provider: '_openrouter', description: 'Most capable, multimodal', tier: 'premium', dailyLimit: 10 },
+      { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: '_openrouter', description: 'Fast & affordable', tier: 'premium', dailyLimit: 25 },
+    ],
+  },
+  {
+    id: 'claude',
+    name: 'Claude',
+    icon: '🟠',
+    envKey: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: [
+      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude 4 Sonnet', provider: 'claude', description: 'Best balance of speed & intelligence', tier: 'premium', dailyLimit: 10 },
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'claude', description: 'Strong reasoning, fast', tier: 'premium', dailyLimit: 15 },
+      { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'claude', description: 'Most powerful, complex tasks', tier: 'premium', dailyLimit: 5 },
     ],
   },
   {
@@ -100,67 +166,22 @@ export const providers: ProviderConfig[] = [
     envKey: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
-      { id: 'x-ai/grok-3-beta', name: 'Grok 3', provider: 'grok', description: 'xAI Grok 3' },
-    ],
-  },
-  {
-    id: 'llama',
-    name: 'Llama 3.3 70B',
-    icon: '🦙',
-    envKey: 'OPENROUTER_API_KEY',
-    baseUrl: 'https://openrouter.ai/api/v1',
-    models: [
-      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct', provider: 'llama', description: 'Meta open source flagship' },
-    ],
-  },
-  {
-    id: 'qwen',
-    name: 'Qwen3',
-    icon: '🐉',
-    envKey: 'OPENROUTER_API_KEY',
-    baseUrl: 'https://openrouter.ai/api/v1',
-    models: [
-      { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'qwen', description: 'Alibaba MoE, 235B parameters' },
+      { id: 'x-ai/grok-3-beta', name: 'Grok 3', provider: 'grok', description: 'xAI Grok 3', tier: 'premium', dailyLimit: 10 },
     ],
   },
 
-  // ─── Direct API providers (require own API keys) ───
+  // ─── Hidden / Internal providers (not shown in sidebar) ───
 
-  {
-    id: 'glm',
-    name: 'Zhipu GLM',
-    icon: '🔴',
-    envKey: 'GLM_API_KEY',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4/',
-    models: [
-      { id: 'glm-4-turbo', name: 'GLM-4 Turbo', provider: 'glm', description: 'Fast, capable, affordable' },
-      { id: 'glm-4-plus', name: 'GLM-4 Plus', provider: 'glm', description: 'Enhanced reasoning' },
-      { id: 'glm-4-flash', name: 'GLM-4 Flash', provider: 'glm', description: 'Fastest, cheapest' },
-      { id: 'glm-4-long', name: 'GLM-4 Long', provider: 'glm', description: '128K context window' },
-    ],
-  },
-  {
-    id: 'perplexity',
-    name: 'Perplexity',
-    icon: '🟡',
-    envKey: 'PERPLEXITY_API_KEY',
-    baseUrl: 'https://api.perplexity.ai',
-    models: [
-      { id: 'sonar-pro', name: 'Sonar Pro', provider: 'perplexity', description: 'Search-grounded, most capable' },
-      { id: 'sonar', name: 'Sonar', provider: 'perplexity', description: 'Search-grounded, fast' },
-    ],
-  },
   {
     id: 'ollama',
     name: 'Ollama (Local)',
     icon: '🟤',
     envKey: 'OLLAMA_BASE_URL',
     baseUrl: 'http://localhost:11434/v1',
+    hidden: true,
     models: [
-      { id: 'llama3', name: 'Llama 3', provider: 'ollama', description: 'Meta Llama 3 (local)' },
-      { id: 'mistral', name: 'Mistral (local)', provider: 'ollama', description: 'Mistral 7B (local)' },
-      { id: 'codellama', name: 'Code Llama', provider: 'ollama', description: 'Code Llama (local)' },
-      { id: 'phi3', name: 'Phi-3', provider: 'ollama', description: 'Microsoft Phi-3 (local)' },
+      { id: 'llama3', name: 'Llama 3', provider: 'ollama', description: 'Meta Llama 3 (local)', tier: 'free' },
+      { id: 'mistral', name: 'Mistral (local)', provider: 'ollama', description: 'Mistral 7B (local)', tier: 'free' },
     ],
   },
   {
@@ -170,33 +191,46 @@ export const providers: ProviderConfig[] = [
     envKey: 'CUSTOM_API_KEY',
     baseUrl: '',
     isCustom: true,
+    hidden: true,
     models: [
-      { id: 'custom-model', name: 'Custom Model', provider: 'custom', description: 'Any OpenAI-compatible endpoint' },
+      { id: 'custom-model', name: 'Custom Model', provider: 'custom', description: 'Any OpenAI-compatible endpoint', tier: 'free' },
     ],
   },
 ];
 
-// Public-facing providers only (hides OpenRouter, Ollama, Custom from public)
+// ─── Public providers (shown in sidebar) ───
 export const publicProviders = providers.filter(
   (p) => !p.hidden && p.id !== 'ollama' && p.id !== 'custom'
 );
 
-// Get all models as a flat list
-export function getAllModels(): ModelConfig[] {
-  return providers.flatMap((p) => p.models);
+// ─── Free models only (for trial and PRO users) ───
+export const freeModels = providers
+  .flatMap((p) => p.models)
+  .filter((m) => m.tier === 'free');
+
+// ─── Premium models only ───
+export const premiumModels = providers
+  .flatMap((p) => p.models)
+  .filter((m) => m.tier === 'premium');
+
+// ─── Check if a model is free ───
+export function isModelFree(modelId: string): boolean {
+  return providers
+    .flatMap((p) => p.models)
+    .some((m) => m.id === modelId && m.tier === 'free');
 }
 
-// Get a specific provider by ID
+// ─── Get a specific provider by ID ───
 export function getProvider(id: ProviderId): ProviderConfig | undefined {
   return providers.find((p) => p.id === id);
 }
 
-// Get models for a specific provider
+// ─── Get models for a specific provider ───
 export function getModelsForProvider(id: ProviderId): ModelConfig[] {
   return getProvider(id)?.models ?? [];
 }
 
-// Check if a provider routes through OpenRouter (for API routing)
+// ─── Check if a provider routes through OpenRouter ───
 export function isOpenRouterBacked(providerId: ProviderId): boolean {
   const p = getProvider(providerId);
   return p?.baseUrl === 'https://openrouter.ai/api/v1';
